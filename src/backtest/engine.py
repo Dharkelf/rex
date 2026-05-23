@@ -46,6 +46,7 @@ class BacktestResult:
     strategy_id: str
     position_eur: float
     hold_bars: int = 3
+    take_profit_pct: float | None = None
     trades: list[Trade] = field(default_factory=list)
 
     @property
@@ -115,9 +116,14 @@ class BacktestResult:
 
 
 class BacktestStrategy(ABC):
-    """Template Method — subclasses implement generate_signals()."""
+    """Template Method — subclasses implement generate_signals().
+
+    Class-level attributes `tw_start`, `tw_end`, `dow_filter`, `take_profit_pct`
+    let subclasses parameterise time-window and exit behaviour without overriding run().
+    """
 
     strategy_id: str = "base"
+    take_profit_pct: float | None = None  # None = hold full hold_bars duration
 
     def __init__(self, cfg: dict | None = None) -> None:
         self.cfg = cfg or load_config()
@@ -142,6 +148,7 @@ class BacktestStrategy(ABC):
             strategy_id=self.strategy_id,
             position_eur=position_eur,
             hold_bars=hold_bars,
+            take_profit_pct=self.take_profit_pct,
         )
 
         signals = self.generate_signals(data)
@@ -155,10 +162,19 @@ class BacktestStrategy(ABC):
         while i < len(index):
             ts = index[i]
             if signals.get(ts, False):
-                entry_price = aswm_close.iloc[i]
+                entry_price = float(aswm_close.iloc[i])
                 exit_i = min(i + hold_bars, len(index) - 1)
+
+                # Take-profit: scan forward for early exit above threshold
+                if self.take_profit_pct is not None and entry_price > 0:
+                    for j in range(i + 1, exit_i + 1):
+                        p = float(aswm_close.iloc[j])
+                        if p > 0 and (p - entry_price) / entry_price >= self.take_profit_pct:
+                            exit_i = j
+                            break
+
                 exit_ts = index[exit_i]
-                exit_price = aswm_close.iloc[exit_i]
+                exit_price = float(aswm_close.iloc[exit_i])
                 if entry_price > 0 and exit_price > 0:
                     result.trades.append(
                         Trade(

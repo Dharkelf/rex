@@ -118,21 +118,30 @@ backtest:
     hold_bars: 3
 
   s3_holdings_lag:
-    holdings_return_threshold: 0.025  # MARA/IREN/MSTR composite
-    aswm_max_move: 0.005              # ASWM must NOT have moved >0.5% yet
+    holdings_return_threshold: 0.025  # MARA/IREN/MSTR composite; ASWM must be falling, BTC up
     hold_bars: 2
     lag_symbols: ["MARA", "IREN", "MSTR"]
+    # time-window variants defined as class attributes in strategies.py
 
   s4_us_open_lag:
-    holdings_open_threshold: 0.020   # holdings open return > 2%
-    aswm_max_move: 0.005             # ASWM lag condition
-    hold_bars: 2                     # exit by XETRA close
+    holdings_open_threshold: 0.010   # lowered: US-open lag entry more sensitive
+    aswm_max_move: 0.005             # ASWM quiet (abs return < 0.5%)
+    hold_bars: 2
+    # time-window + take-profit variants defined as class attributes in strategies.py
 
   s5_mean_reversion:
     drawdown_threshold: -0.050       # ASWM must be >5% below 24h rolling high
+    vix_min: 18.0                    # skip if VIX < 18 (covered-call premiums too thin)
     vix_max: 35.0                    # skip if VIX >= 35 (panic / Kriegsindikator)
     vol_max: 0.015                   # skip if realized_vol_24h >= 1.5% (own volatility filter)
     hold_bars: 16                    # default overnight hold
+
+  s6_iv_premium_harvest:
+    holdings_pullback_threshold: -0.015  # holdings ≥1.5% down in 1h → re-write at high IV
+    vix_min: 18.0                        # VIX in premium harvest zone (not too calm)
+    vix_max: 30.0                        # below panic threshold (Kriegsindikator)
+    hold_bars: 16
+    take_profit_pct: 0.015               # exit at +1.5% — covered-call bounce is capped
 
 # ---------------------------------------------------------------------------
 # HMM regime detection

@@ -38,75 +38,79 @@ _Not yet run. Update after first `python main.py --fit-hmm`._
 
 ## Backtest Results
 
-Run: 2026-05-23 (v3). Walk-forward, 3 folds, ~1 443 hourly bars.
-Default thresholds (nicht optimiert). Hold: [2,3,5,8,16,24]h. Log-returns. Regime-Filter (HMM Bull).
-W = avg. winner / L = avg. loser (long-only Aufschlüsselung).
+Run: 2026-05-23 (v5). Walk-forward, 3 folds, ~1 443 hourly bars.
+Hold: [2,3,5,8,16,24]h. Log-returns. S1-S6 inkl. Zeitfenster-Varianten, Take-Profit-Engine, vix_min.
+
+**Änderungen v5 vs v4:**
+- S3: Zeitfenster-Varianten (08-10, 11-13, 13-16 UTC, Mon-Wed, Thu-Fri)
+- S4: Zeitfenster-Varianten (08-12, 10-13, 13-16 UTC, Mon-Wed 12-15, Thu-Fri 12-15) + tp15-Variante
+  Base S4 zurück auf 13-14 UTC (original Gewinner)
+- S5: vix_min = 18 (Covered-Call-Prämien-Zone)
+- S6: neu — IV-Prämien-Harvest (Holdings-Pullback + VIX 18-30 + TP 1.5%)
+- Engine: Take-Profit-Frühausstieg, Signal-Generator Exit-Zeit-Fix + "Weitere Checks"
 
 ### Top-Ergebnisse (€1000 Position, alle Bars)
 
 | Strategy | Hold | Trades/fold | Win% | Ø P&L | W | L | Sharpe |
 |---|---|---|---|---|---|---|---|
 | S1 BTC-Lag | 24h | 6.7 | 46% | €-3.96 | €+26.10 | €-29.05 | -0.11 |
-| S3 Holdings-Lag | 16h | 4.0 | 56% | **€-1.35** | €+24.58 | €-34.81 | -0.02 |
-| S4 US-Open Lag | 16h | 1.7 | **88%** | **€+19.93** | €+26.03 | €-15.86 | +0.78 |
-| S4 US-Open Lag | 24h | 1.7 | 38% | €-0.92 | €+52.03 | €-45.49 | +0.33 |
+| **S4_us_open_lag** | **16h** | **1.7** | **88%** | **€+19.93** | **€+26.03** | **€-15.86** | **+0.78** |
+| S4_us_open_lag | 24h | 1.7 | 38% | €-0.92 | €+52.03 | €-45.49 | +0.33 |
 
-### S1 BTC-Lag — Hold-Sweep (€1000, alle Bars)
+### S4 Zeitfenster-Experiment (€1000, 16h Hold, alle Bars)
 
-| Hold | Trades/fold | Win% | Ø P&L | W | L | Sharpe |
-|---|---|---|---|---|---|---|
-| 3h | 12.7 | 22% | €-15.43 | €+6.30 | €-21.56 | -1.06 |
-| 16h | 9.7 | 15% | €-21.59 | €+28.44 | €-30.11 | -0.79 |
-| **24h** | **6.7** | **46%** | **€-3.96** | **€+26.10** | **€-29.05** | **-0.11** |
+| Variante | Fenster UTC | Trades/fold | Win% | Ø P&L | Sharpe |
+|---|---|---|---|---|---|
+| **S4_us_open_lag** | **13-14** | **1.7** | **88%** | **€+19.93** | **+0.78** |
+| S4_thu_fri_12_15 | 12-15, Do-Fr | 1.7 | 50% | €-4.43 | -1.17 |
+| S4_mon_wed_12_15 | 12-15, Mo-Mi | 4.0 | 37% | €-4.92 | -0.22 |
+| S4_usopen_13_16 | 13-16 | 6.3 | 39% | €-8.20 | -0.27 |
+| S4_morning_08_12 | 8-12 | 1.0 | 33% | €-22.88 | nan |
+| S4_preusopen_10_13 | 10-13 | 0.0 | — | — | — |
+| S4_usopen_tp15 | 13-16+tp1.5% | 7.7 | 28% | €-10.57 | -0.47 |
 
-### S3 Holdings-Lag — Hold-Sweep (€1000, alle Bars)
+**Kernerkenntnis:** Fenster 13-14 UTC ist das einzig profitable. Jede Erweiterung verdünnt die
+Signalqualität massiv. Der US-Open-Lag ist ein Präzisionssignal in den ersten 2 Bars nach 13:30 UTC.
+Take-Profit 1.5% hilft nicht — die guten Trades brauchen den vollen 16h-Hold.
 
-| Hold | Trades/fold | Win% | Ø P&L | W | L | Sharpe |
-|---|---|---|---|---|---|---|
-| 8h | 4.3 | 33% | €-10.73 | €+12.43 | €-23.48 | -0.59 |
-| **16h** | **4.0** | **56%** | **€-1.35** | **€+24.58** | **€-34.81** | **-0.02** |
-| 24h | 3.7 | 33% | €-20.35 | €+31.83 | €-51.02 | -0.83 |
+### S3 Zeitfenster-Experiment (€1000, alle Holds)
 
-### S4 US-Open Lag — Hold-Sweep (€1000, alle Bars)
+Alle S3-Varianten: 0-1.3 Trades/fold, durchgehend negativ. S3-Konzept (Holdings + ASWM-Falling + BTC +
+enges Fenster) mit 5 Monaten ASWM-Daten nicht belastbar. Gilt für alle Tagesabschnitte.
+**Referenz**: v3 S3 (abs() Bedingung, 8-16 UTC): 4.0 trades/fold, 56%, €-1.35 — marginaler,
+aber W/L strukturell schwach (€+24.58 vs €-34.81).
 
-| Hold | Trades/fold | Win% | Ø P&L | W | L | Sharpe |
-|---|---|---|---|---|---|---|
-| 8h | 1.7 | 25% | €-7.05 | €+4.24 | €-10.73 | -0.30 |
-| **16h** | **1.7** | **88%** | **€+19.93** | **€+26.03** | **€-15.86** | **+0.78** |
-| 24h | 1.7 | 38% | €-0.92 | €+52.03 | €-45.49 | +0.33 |
-
-### S5 Mean-Reversion — Hold-Sweep (€1000, alle Bars)
+### S5 Mean-Reversion mit vix_min=18 (€1000, alle Bars)
 
 | Hold | Trades/fold | Win% | Ø P&L | W | L | Sharpe |
 |---|---|---|---|---|---|---|
-| 8h | 22.7 | 32% | €-15.61 | €+19.39 | €-31.66 | -0.51 |
-| 16h | 14.7 | 41% | €-13.08 | €+25.27 | €-40.14 | -0.31 |
-| 24h | 11.0 | 31% | €-17.43 | €+29.85 | €-38.38 | -0.52 |
+| 8h | 6.3 | 50% | €-14.38 | €+19.84 | €-49.46 | -0.38 |
+| 16h | 5.0 | 40% | €-11.03 | €+28.04 | €-40.11 | -0.30 |
+| 24h | 4.0 | 42% | €-12.56 | €+36.76 | €-41.14 | -0.21 |
 
-### Regime-Filter (HMM Bull only) — Auswirkung
+_Referenz v4 ohne vix_min: 6.3 trades/fold, 36%, €-12.49. vix_min=18 reduziert Trades leicht,
+verbessert Win-Rate auf 40% — minimale Verbesserung. Covered-Call-Deckel begrenzt Bounce strukturell._
 
-| Strategy | Hold | Alle Bars Ø P&L | Bull only Ø P&L | Trades/fold (Bull) |
-|---|---|---|---|---|
-| S1 BTC-Lag | 24h | €-3.96 | €-8.30 | 5.3 |
-| S3 Holdings-Lag | 16h | €-1.35 | €-12.04 | 2.7 |
-| S4 US-Open Lag | 16h | **€+19.93** | NaN (0 Trades) | 0.0 |
-| S5 Mean-Reversion | 16h | €-13.08 | €-19.64 | 11.3 |
+### S6 IV Premium Harvest (€1000, alle Bars)
 
-**Interpretation (v3):**
-- **S4 US-Open Lag + 16h + €1000**: weiterhin einzige Strategie mit positivem Ø P&L (€+19.93).
-  W/L zeigt: durchschn. Gewinner €+26.03, Verlierer €-15.86 — gutes W/L-Verhältnis 1.64.
-  Aber: nur 5 Trades total (1.7/fold) — nicht statistisch belastbar.
-  **S4 im Bull-Regime: 0 Trades** — US-Open-Signale entstehen nie im HMM-Bull-Zustand.
-  Das deutet darauf hin, dass der HMM-Regime-Filter für S4 nicht passend ist.
-- **S1 BTC-Lag + 24h**: 46% Win-Rate, €-3.96 — deutlich besser als 16h. Mit Schwellen-Opt. ausbaufähig.
-- **S3 Holdings-Lag + 16h**: W/L-Verhältnis strukturell schwach (€+24.58 vs €-34.81) — Verlierer
-  sind fast 50% größer als Gewinner. Trotz 56% Win-Rate negatives Ø P&L.
-- **S5 Mean-Reversion**: zu viele Trades (Drawdown-Schwelle 2% zu niedrig — ETF ist strukturell
-  oft >2% unter 24h-High wegen Covered-Call). VIX-Filter und Volatilitäts-Filter reduzieren
-  Trades kaum. Drawdown-Schwelle auf -4% oder -5% erhöhen (nächste Optimierung).
-- **Regime-Filter schadet generell**: Bull-only führt zu weniger Trades aber schlechterer Performance
-  — HMM-Bull-Regime korreliert nicht mit Strategiesignalen der S1–S5.
-- **Nächster Schritt**: Schwellen-Optimierung via Optuna (Bayesian), insb. S5-Drawdown-Schwelle.
+| Hold | Trades/fold | Win% | Ø P&L | W | L | Sharpe |
+|---|---|---|---|---|---|---|
+| 16h | 9.7 | 42% | €-22.46 | €+7.32 | €-48.04 | -0.64 |
+| 24h | 9.0 | 37% | €-23.11 | €+8.18 | €-44.34 | -0.68 |
+
+_S6 nicht funktionsfähig mit aktuellen Parametern: holdings_pullback_threshold -1.5% triggert 10×/fold._
+_Avg. Winner €7.32 << TP-Schwelle €15 (1.5%) → TP nie ausgelöst. Konzept mit restriktiverem Threshold_
+_(-3% oder -4%) und >2 Jahren ASWM-Daten erneut testen._
+
+### Gesamtbefund v5
+
+- **Einzige positive Strategie**: S4_us_open_lag (13-14 UTC, 16h, €1000): 88%, €+19.93, Sharpe 0.78.
+  Mechanisch: die ersten 2 Stunden nach US-Open, wenn MARA/IREN/MSTR stark eröffnen aber ASWM noch
+  auf dem XETRA-Niveau des europäischen Handels steht.
+- **Zeitfenster-Experiment**: bestätigt 13-14 UTC als einzig funktionierendes Fenster.
+- **S3/S6**: Konzepte valide, aber unzureichende Datenbasis (5 Monate ASWM) für statistische Belastbarkeit.
+- **S5 vix_min**: minimale Verbesserung, strukturelles Problem bleibt (Covered-Call-Deckel).
+- **Nächster Schritt**: Bayesian-Optimierung S4-Schwelle via Optuna; mehr ASWM-Daten abwarten.
 
 ---
 

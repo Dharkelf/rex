@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 
 import pandas as pd
 import pytz
@@ -30,7 +30,7 @@ class SignalOutput:
     timestamp_cet: str
     regime: str
     regime_confidence: float
-    action: str                   # "KAUFE" or "KEIN EINSTIEG"
+    action: str  # "KAUFE" or "KEIN EINSTIEG"
     hold_h: int
     exit_time_cet: str
     expected_return_p25: float
@@ -40,6 +40,7 @@ class SignalOutput:
     tradegate_price: float | None
     tradegate_deviation_pct: float | None
     trigger_name: str
+    other_triggers: list[str] = field(default_factory=list)
 
     def format(self) -> str:
         now = self.timestamp_cet
@@ -49,8 +50,8 @@ class SignalOutput:
 
         if self.action == "KAUFE":
             lines += [
-                f"Signal:    KAUFE ASWM.DE am Ask",
-                f"Haltedauer: {self.hold_h}h  (Exit ~{self.exit_time_cet} CET)",
+                "Signal:    KAUFE ASWM.DE am Ask",
+                f"Haltedauer: {self.hold_h}h  (Exit ~{self.exit_time_cet})",
                 "",
                 "SENSITIVITÄT:",
             ]
@@ -69,15 +70,24 @@ class SignalOutput:
 
         if self.tradegate_price is not None and self.tradegate_deviation_pct is not None:
             dev = self.tradegate_deviation_pct * 100
-            lines.append(
-                f"Tradegate: €{self.tradegate_price:.4f} ({dev:+.1f}% vs. XETRA-Close)"
-            )
+            lines.append(f"Tradegate: €{self.tradegate_price:.4f} ({dev:+.1f}% vs. XETRA-Close)")
+
+        if self.other_triggers:
+            lines.append("")
+            lines.append("Weitere Checks: " + "  |  ".join(self.other_triggers))
 
         return "\n".join(lines)
 
 
 class BaseSignalGenerator(ABC):
     """Skeleton: load data → detect regime → predict → format output."""
+
+    _ALL_SLOTS: list[str] = [
+        "08:45 CET — Overnight-Gap",
+        "09:15 CET — XETRA-Open",
+        "15:35 CET — US-Open",
+        "17:00 CET — Abend/Overnight",
+    ]
 
     @property
     @abstractmethod
@@ -86,6 +96,10 @@ class BaseSignalGenerator(ABC):
     @property
     @abstractmethod
     def default_hold_h(self) -> int: ...
+
+    def _other_slots(self) -> list[str]:
+        current_time = self.trigger_name.split()[0]
+        return [s for s in self._ALL_SLOTS if not s.startswith(current_time)]
 
     def run(self) -> SignalOutput:
         cfg = load_config()
@@ -150,10 +164,13 @@ class BaseSignalGenerator(ABC):
         # 7. Tradegate
         tg_price, tg_dev = self._tradegate_check(cfg)
 
-        # 8. Exit time
+        # 8. Exit time — proper date arithmetic, show "morgen HH:MM" when overnight
         now_cet = datetime.now(_CET)
-        exit_h = (now_cet.hour + hold_h) % 24
-        exit_time = f"{exit_h:02d}:00"
+        exit_dt = now_cet + timedelta(hours=hold_h)
+        if exit_dt.date() > now_cet.date():
+            exit_time = f"morgen {exit_dt.strftime('%H:%M')} CET"
+        else:
+            exit_time = exit_dt.strftime("%H:%M") + " CET"
 
         output = SignalOutput(
             timestamp_cet=now_cet.strftime("%Y-%m-%d %H:%M"),
@@ -169,6 +186,7 @@ class BaseSignalGenerator(ABC):
             tradegate_price=tg_price,
             tradegate_deviation_pct=tg_dev,
             trigger_name=self.trigger_name,
+            other_triggers=self._other_slots(),
         )
 
         self._log_signal(output)
@@ -250,6 +268,7 @@ class BaseSignalGenerator(ABC):
 # ---------------------------------------------------------------------------
 # Concrete trigger subclasses
 # ---------------------------------------------------------------------------
+
 
 class OvernightGapSignal(BaseSignalGenerator):
     trigger_name = "08:45 Overnight-Gap"

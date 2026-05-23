@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import pickle
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -12,6 +13,9 @@ from sklearn.model_selection import TimeSeriesSplit
 
 from src.utils.config import load_config
 from src.utils.paths import processed_dir
+
+if TYPE_CHECKING:
+    from xgboost import XGBRegressor
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +37,9 @@ class XGBPredictor:
         if regimes is not None and self.regime is not None:
             data = data[regimes == self.regime]
             if len(data) < 50:
-                logger.warning("Regime %d has only %d rows — skipping XGB fit", self.regime, len(data))
+                logger.warning(
+                    "Regime %d has only %d rows — skipping XGB fit", self.regime, len(data)
+                )
                 return
 
         for horizon in self.cfg["target_horizons_h"]:
@@ -103,16 +109,14 @@ class XGBPredictor:
 
     # ------------------------------------------------------------------
 
-    def _build_dataset(
-        self, df: pd.DataFrame, horizon_h: int
-    ) -> tuple[np.ndarray, pd.Series]:
+    def _build_dataset(self, df: pd.DataFrame, horizon_h: int) -> tuple[np.ndarray, pd.Series]:
         lags = self.cfg["xgb"]["autoregressive_lags"]
         feature_cols = [c for c in df.columns if c != "aswm_close"]
 
         lag_frames = []
         for lag in lags:
             lagged = df[feature_cols].shift(lag)
-            lagged.columns = [f"{c}_lag{lag}" for c in feature_cols]
+            lagged.columns = pd.Index([f"{c}_lag{lag}" for c in feature_cols])
             lag_frames.append(lagged)
 
         X_df = pd.concat([df[feature_cols]] + lag_frames, axis=1)
@@ -124,8 +128,9 @@ class XGBPredictor:
             y[mask],
         )
 
-    def _build_model(self) -> "XGBRegressor":
+    def _build_model(self) -> XGBRegressor:
         from xgboost import XGBRegressor  # noqa: PLC0415 — lazy import (requires libomp)
+
         c = self.cfg["xgb"]
         return XGBRegressor(
             n_estimators=c["n_estimators"],

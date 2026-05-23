@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 import pandas as pd
 
@@ -35,7 +34,10 @@ class NeuralProphetPredictor:
 
         df_np = self._prepare_df(feature_matrix)
         if df_np is None or len(df_np) < 50:
-            logger.warning("Insufficient data for NeuralProphet fit (%d rows)", len(df_np) if df_np is not None else 0)
+            logger.warning(
+                "Insufficient data for NeuralProphet fit (%d rows)",
+                len(df_np) if df_np is not None else 0,
+            )
             return
 
         cfg = self.cfg
@@ -77,7 +79,8 @@ class NeuralProphetPredictor:
         if "aswm_close" not in feature_matrix.columns:
             return None
         df = pd.DataFrame()
-        df["ds"] = feature_matrix.index.tz_localize(None) if feature_matrix.index.tz else feature_matrix.index
+        dti = pd.DatetimeIndex(feature_matrix.index)
+        df["ds"] = dti.tz_localize(None) if dti.tz is not None else dti
         df["y"] = feature_matrix["aswm_close"].values
         for reg in self._regressors:
             if reg in feature_matrix.columns:
