@@ -129,7 +129,9 @@ class RegimeDetector:
         study.optimize(objective, n_trials=cfg["n_trials"], show_progress_bar=False)
 
         best = study.best_params
-        return [c for c in candidates if best.get(c, False)]
+        selected = [c for c in candidates if best.get(c, False)]
+        # Fallback: if Optuna found no valid subset, use all candidates
+        return selected if len(selected) >= 2 else candidates
 
     def _build_model(self) -> GaussianHMM:
         cfg = self.cfg
