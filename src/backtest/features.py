@@ -66,6 +66,20 @@ def build_backtest_features() -> pd.DataFrame:
     else:
         df["holdings_composite_1h"] = np.nan
 
+    # VIX level (forward-filled from US market to XETRA hours)
+    vix = _load_close("^VIX")
+    if not vix.empty:
+        df["vix_level"] = vix.reindex(idx, method="ffill")
+    else:
+        df["vix_level"] = np.nan
+
+    # ASWM own realized volatility: rolling 24-bar std of log-returns
+    df["aswm_realized_vol_24h"] = df["aswm_return_1h"].rolling(24, min_periods=6).std()
+
+    # ASWM drawdown from 24h rolling high — proxy for mean-reversion entry
+    roll_max = df["aswm_close"].rolling(24, min_periods=6).max()
+    df["aswm_drawdown_24h"] = (df["aswm_close"] - roll_max) / roll_max
+
     # Time features
     dti = pd.DatetimeIndex(idx)
     df["hour_of_day"] = dti.hour

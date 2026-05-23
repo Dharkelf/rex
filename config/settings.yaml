@@ -102,10 +102,11 @@ backtest:
   # Walk-forward
   n_splits: 3
 
-  # Hold periods tested across all strategies (hours)
-  # 3h = intraday, 5h = half-day, 8h = full XETRA session,
-  # 16h = overnight (XETRA close ~17:30 to next open ~09:15)
-  hold_periods_h: [2, 3, 5, 8, 16]
+  # Hold periods tested across all strategies (hours / bars in data)
+  # 3h = intraday, 5h = half-day, 8h ≈ XETRA session,
+  # 16h ≈ overnight+next-morning (~2 trading days given 6-7 ASWM bars/day)
+  # 24h ≈ 3-4 trading days
+  hold_periods_h: [2, 3, 5, 8, 16, 24]
 
   # Strategy thresholds (optimised during backtest, initial values here)
   s1_btc_lag:
@@ -126,6 +127,12 @@ backtest:
     holdings_open_threshold: 0.020   # holdings open return > 2%
     aswm_max_move: 0.005             # ASWM lag condition
     hold_bars: 2                     # exit by XETRA close
+
+  s5_mean_reversion:
+    drawdown_threshold: -0.020       # ASWM must be >2% below 24h rolling high
+    vix_max: 35.0                    # skip if VIX >= 35 (panic / Kriegsindikator)
+    vol_max: 0.015                   # skip if realized_vol_24h >= 1.5% (own volatility filter)
+    hold_bars: 16                    # default overnight hold
 
 # ---------------------------------------------------------------------------
 # HMM regime detection

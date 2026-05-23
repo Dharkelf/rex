@@ -91,9 +91,37 @@ class S4UsOpenLag(BacktestStrategy):
         return load_config()["backtest"]["s4_us_open_lag"]["hold_bars"]
 
 
+class S5MeanReversion(BacktestStrategy):
+    """S5 — Mean-reversion after oversold drop; VIX + own-vol filter (Kriegsindikator).
+
+    Entry: ASWM is >drawdown_threshold% below its 24h rolling high,
+    AND VIX < vix_max (not in panic), AND realized_vol_24h < vol_max.
+    """
+
+    strategy_id = "S5_mean_reversion"
+
+    def generate_signals(self, data: pd.DataFrame) -> pd.Series:
+        cfg = load_config()["backtest"]["s5_mean_reversion"]
+        dd_thresh: float = cfg["drawdown_threshold"]  # negative, e.g. -0.02
+        vix_max: float = cfg["vix_max"]
+        vol_max: float = cfg["vol_max"]
+
+        oversold = data["aswm_drawdown_24h"] < dd_thresh
+        calm_market = data["vix_level"].fillna(0) < vix_max
+        low_vol = data["aswm_realized_vol_24h"].fillna(1) < vol_max
+        # Only during XETRA hours
+        hours = pd.DatetimeIndex(data.index).hour
+        xetra_mask = (hours >= 8) & (hours < 16)
+        return pd.Series(oversold & calm_market & low_vol & xetra_mask, index=data.index)
+
+    def _hold_bars(self) -> int:
+        return load_config()["backtest"]["s5_mean_reversion"]["hold_bars"]
+
+
 ALL_STRATEGIES: list[type[BacktestStrategy]] = [
     S1BtcLag,
     S2OvernightGap,
     S3HoldingsLag,
     S4UsOpenLag,
+    S5MeanReversion,
 ]
