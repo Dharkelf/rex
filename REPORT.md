@@ -108,26 +108,31 @@ Default thresholds from settings.yaml (nicht optimiert). Hold-Perioden: [2, 3, 5
 
 ## HMM Regime Model
 
-Run: 2026-05-23. GaussianHMM, 3 states, 100 Optuna trials (TPE), 3-fold TimeSeriesSplit.
+Run: 2026-05-23 (v2 — log-returns + StandardScaler). GaussianHMM, 3 states, 100 Optuna trials (TPE).
 Saved: `data/processed/hmm_model_v1.pkl`.
 
 | Metric | Value |
 |---|---|
 | n_components | 3 |
-| Features (Optuna best) | vix_change_1h, holdings_composite_1h, btc_overnight_return, us_open_flag |
+| Features (Optuna best) | vix_change_1h, holdings_composite_1h, us_open_flag |
 | n_samples | 1 443 |
-| Total log-likelihood | 15 133 505 |
-| Bull regime (State 0) | 199 bars = 13.8% — mean ASWM return +0.081%/h |
-| Neutral regime (State 2) | 973 bars = 67.4% — mean ASWM return +0.020%/h |
-| Bear regime (State 1) | 271 bars = 18.8% — mean ASWM return −0.016%/h |
+| Total log-likelihood | 12 933 643 |
+| Bull regime (State 0) | 438 bars = 30.4% — mean ASWM log-return **+0.147%/h** |
+| Neutral regime (State 1) | 318 bars = 22.0% — mean ASWM log-return −0.031%/h |
+| Bear regime (State 2) | 687 bars = 47.6% — mean ASWM log-return −0.045%/h |
+
+**Verbesserung gegenüber v1 (einfache Returns, kein Scaler):**
+- Regime-Separation deutlich stärker: Bull +0.147%/h vs. Neutral/Bear ~−0.04%/h
+  (v1: +0.081% vs. +0.020% / −0.016% — kaum unterscheidbar)
+- Bull-Anteil 30.4% (v1: 13.8%) — mehr Handelssignale in besserem Marktumfeld
+- StandardScaler stabilisiert das EM-Training und verhindert featureskalen-dominanz
 
 **Interpretation:**
-- Regime-Separation plausibel: Bull hat doppelt so hohe mittlere Stundenrendite wie Neutral.
-- 13.8% Bull-Bars entsprechen ~200h aktiver Kaufgelegenheiten über ~10 Monate.
-- Nächster Schritt: Backtest nur in Bull-Regime (Regime-Filter) — erwartet höhere Win-Rate,
-  weniger Trades, besseres Risk/Reward.
-- Warnung: Log-Likelihood sehr groß (features sind kleine Returns) — nur für Modellvergleich
-  intern verwendbar, kein absoluter Gütemaßstab.
+- In Bull-Regime: erwartete Stundenrendite +0.147% → bei 16h Hold ca. +2.35% kumuliert
+  = knapp über Break-even (€1000 Position: 2.0%). **Erste positive Erwartungswertstruktur.**
+- Bear hat knapp die Hälfte aller Bars — strukturell bearishes Marktumfeld seit ETF-Inception.
+  Covered-Call-Overlay dämpft Upside auch in Bull-Phasen.
+- Nächster Schritt: Backtest mit Regime-Filter (nur Bull) → erwartete Win-Rate-Verbesserung.
 
 ---
 
