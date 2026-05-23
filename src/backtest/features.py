@@ -47,21 +47,22 @@ def build_backtest_features() -> pd.DataFrame:
     df = pd.DataFrame(index=idx)
     df["aswm_close"] = aswm
 
-    # ASWM return
-    df["aswm_return_1h"] = df["aswm_close"].pct_change()
+    # ASWM return — log-return for stationarity
+    aswm_c = df["aswm_close"]
+    df["aswm_return_1h"] = np.log(aswm_c / aswm_c.shift(1))
 
-    # BTC features
+    # BTC features — log-returns
     btc_aligned = btc.reindex(idx, method="ffill")
-    df["btc_return_1h"] = btc_aligned.pct_change()
-    df["btc_return_4h"] = btc_aligned.pct_change(periods=4)
+    df["btc_return_1h"] = np.log(btc_aligned / btc_aligned.shift(1))
+    df["btc_return_4h"] = np.log(btc_aligned / btc_aligned.shift(4))
 
     # Overnight BTC return: return from last XETRA close (16:30 UTC) to current bar
     df["btc_overnight_return"] = _overnight_return(btc_aligned, close_hour_utc=16)
 
-    # Holdings composite: equal-weighted mean return of lag_symbols
+    # Holdings composite: equal-weighted mean log-return of lag_symbols
     if holding_series:
         combined = pd.concat(holding_series, axis=1).reindex(idx, method="ffill")
-        df["holdings_composite_1h"] = combined.pct_change().mean(axis=1)
+        df["holdings_composite_1h"] = np.log(combined / combined.shift(1)).mean(axis=1)
     else:
         df["holdings_composite_1h"] = np.nan
 
@@ -86,8 +87,8 @@ def _overnight_return(series: pd.Series, close_hour_utc: int) -> pd.Series:
         price = float(series.iloc[i])
         if ts.hour == close_hour_utc:
             last_close_price = price
-        if last_close_price is not None and ts.hour != close_hour_utc:
-            result.iloc[i] = (price - last_close_price) / last_close_price
+        if last_close_price is not None and ts.hour != close_hour_utc and last_close_price > 0:
+            result.iloc[i] = np.log(price / last_close_price)
         else:
             result.iloc[i] = float("nan")
 
