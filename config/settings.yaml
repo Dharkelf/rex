@@ -129,7 +129,7 @@ backtest:
     hold_bars: 2                     # exit by XETRA close
 
   s5_mean_reversion:
-    drawdown_threshold: -0.020       # ASWM must be >2% below 24h rolling high
+    drawdown_threshold: -0.050       # ASWM must be >5% below 24h rolling high
     vix_max: 35.0                    # skip if VIX >= 35 (panic / Kriegsindikator)
     vol_max: 0.015                   # skip if realized_vol_24h >= 1.5% (own volatility filter)
     hold_bars: 16                    # default overnight hold
