@@ -108,18 +108,26 @@ Default thresholds from settings.yaml (nicht optimiert). Hold-Perioden: [2, 3, 5
 
 ## HMM Regime Model
 
-_Not yet run._
+Run: 2026-05-23. GaussianHMM, 3 states, 100 Optuna trials (TPE), 3-fold TimeSeriesSplit.
+Saved: `data/processed/hmm_model_v1.pkl`.
 
 | Metric | Value |
 |---|---|
-| n_components | — |
-| Log-likelihood | — |
-| BIC | — |
-| Regime 0 frequency | — |
-| Regime 1 frequency | — |
-| Regime 2 frequency | — |
-| Best feature subset (Optuna) | — |
-| Best CV score | — |
+| n_components | 3 |
+| Features (Optuna best) | vix_change_1h, holdings_composite_1h, btc_overnight_return, us_open_flag |
+| n_samples | 1 443 |
+| Total log-likelihood | 15 133 505 |
+| Bull regime (State 0) | 199 bars = 13.8% — mean ASWM return +0.081%/h |
+| Neutral regime (State 2) | 973 bars = 67.4% — mean ASWM return +0.020%/h |
+| Bear regime (State 1) | 271 bars = 18.8% — mean ASWM return −0.016%/h |
+
+**Interpretation:**
+- Regime-Separation plausibel: Bull hat doppelt so hohe mittlere Stundenrendite wie Neutral.
+- 13.8% Bull-Bars entsprechen ~200h aktiver Kaufgelegenheiten über ~10 Monate.
+- Nächster Schritt: Backtest nur in Bull-Regime (Regime-Filter) — erwartet höhere Win-Rate,
+  weniger Trades, besseres Risk/Reward.
+- Warnung: Log-Likelihood sehr groß (features sind kleine Returns) — nur für Modellvergleich
+  intern verwendbar, kein absoluter Gütemaßstab.
 
 ---
 
