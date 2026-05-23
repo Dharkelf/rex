@@ -1,0 +1,41 @@
+# secrets & environment
+.env
+
+# data (never commit raw or processed data)
+data/
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# test / coverage
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# notebooks
+.ipynb_checkpoints/
+
+# logs (keep structure, not files)
+logs/*.log

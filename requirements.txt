@@ -1,0 +1,37 @@
+# Core data
+yfinance==0.2.61
+pandas==2.2.3
+numpy==1.26.4
+pyarrow==16.1.0
+
+# HTTP / scraping
+requests==2.32.3
+beautifulsoup4==4.12.3
+lxml==5.2.2
+
+# Config
+PyYAML==6.0.1
+python-dotenv==1.0.1
+
+# HMM / ML
+hmmlearn==0.3.3
+scikit-learn==1.5.0
+xgboost==2.1.1
+optuna==3.6.1
+
+# NeuralProphet
+neuralprophet==0.9.4
+torch==2.3.1
+
+# Scheduler
+APScheduler==3.10.4
+
+# Dev / tooling
+pre-commit==3.7.1
+pytest==8.2.2
+pytest-mock==3.14.0
+ruff==0.4.4
+mypy==1.10.0
+pandas-stubs==2.2.2.240603
+types-PyYAML==6.0.12.20240311
+types-requests==2.32.0.20240602

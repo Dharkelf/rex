@@ -1,0 +1,213 @@
+# REX Signal Pipeline — single source of truth for all parameters
+# All numeric values live here. Never hard-code in src/.
+
+# ---------------------------------------------------------------------------
+# ETF target
+# ---------------------------------------------------------------------------
+etf:
+  isin: IE0008BA4TY1
+  wkn: A419AX
+  ticker_xetra: "ASWM.DE"       # primary trading feed (EUR)
+  ticker_lse: "CEGI.L"          # reference feed (USD)
+  inception_date: "2025-07-02"
+  currency_xetra: EUR
+  # XETRA session in UTC
+  xetra_open_utc: "08:00"
+  xetra_close_utc: "16:30"
+  # Tradegate session in UTC
+  tradegate_open_utc: "07:00"
+  tradegate_close_utc: "20:00"
+  # US markets open in UTC (summer / CET+2)
+  us_open_utc: "13:30"
+  tradegate_url: "https://www.tradegate.de/orderbuch.php?isin=IE0008BA4TY1"
+  tradegate_deviation_threshold: 0.005   # flag if >0.5% vs XETRA close
+
+# ---------------------------------------------------------------------------
+# Holdings (top 10, update when fund rebalances)
+# ---------------------------------------------------------------------------
+holdings:
+  - symbol: "MU"
+    name: "Micron Technology"
+    weight: 0.0545
+  - symbol: "APLD"
+    name: "Applied Digital"
+    weight: 0.0504
+  - symbol: "AMD"
+    name: "Advanced Micro Devices"
+    weight: 0.0475
+  - symbol: "MARA"
+    name: "MARA Holdings"
+    weight: 0.0449
+  - symbol: "IREN"
+    name: "IREN Ltd"
+    weight: 0.0448
+  - symbol: "HOOD"
+    name: "Robinhood Markets"
+    weight: 0.0423
+  - symbol: "NVDA"
+    name: "Nvidia"
+    weight: 0.0416
+  - symbol: "TSLA"
+    name: "Tesla"
+    weight: 0.0399
+  - symbol: "V"
+    name: "Visa"
+    weight: 0.0393
+  - symbol: "MSTR"
+    name: "Strategy (MicroStrategy)"
+    weight: 0.0393
+
+# ---------------------------------------------------------------------------
+# Feature series collected at 1h resolution
+# ---------------------------------------------------------------------------
+features:
+  symbols:
+    - "BTC-USD"
+    - "ETH-USD"
+    - "BITQ"
+    - "SMH"
+    - "IPAY"
+    - "QQQ"
+    - "^VIX"
+    - "MU"
+    - "APLD"
+    - "AMD"
+    - "MARA"
+    - "IREN"
+    - "HOOD"
+    - "NVDA"
+    - "TSLA"
+    - "V"
+    - "MSTR"
+  interval: "1h"
+  lookback_days: 730          # 2 years for feature history
+  feature_schema_version: 1
+
+# ---------------------------------------------------------------------------
+# Data storage
+# ---------------------------------------------------------------------------
+data:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  logs_dir: "logs"
+
+# ---------------------------------------------------------------------------
+# Backtest
+# ---------------------------------------------------------------------------
+backtest:
+  # Transaction costs
+  fee_per_side_eur: 10.0
+  position_sizes_eur: [500, 1000]
+
+  # Walk-forward
+  n_splits: 3
+
+  # Strategy thresholds (optimised during backtest, initial values here)
+  s1_btc_lag:
+    btc_return_threshold: 0.015    # BTC 1h return > 1.5% triggers entry
+    hold_bars: 3
+
+  s2_overnight_gap:
+    btc_overnight_threshold: 0.020 # BTC move during XETRA-closed window
+    hold_bars: 3
+
+  s3_holdings_lag:
+    holdings_return_threshold: 0.025  # MARA/IREN/MSTR composite
+    aswm_max_move: 0.005              # ASWM must NOT have moved >0.5% yet
+    hold_bars: 2
+    lag_symbols: ["MARA", "IREN", "MSTR"]
+
+  s4_us_open_lag:
+    holdings_open_threshold: 0.020   # holdings open return > 2%
+    aswm_max_move: 0.005             # ASWM lag condition
+    hold_bars: 2                     # exit by XETRA close
+
+# ---------------------------------------------------------------------------
+# HMM regime detection
+# ---------------------------------------------------------------------------
+hmm:
+  n_components: 3               # Bull / Neutral / Bear
+  n_iter: 1000
+  random_state: 42
+  covariance_type: "full"
+
+  # Optuna Bayesian optimisation
+  n_trials: 100
+  optuna_seed: 7
+  n_splits: 3                   # TimeSeriesSplit folds
+
+  # Feature candidates for Bayesian subset selection
+  feature_candidates:
+    - "btc_return_1h"
+    - "btc_return_4h"
+    - "eth_return_1h"
+    - "bitq_return_1h"
+    - "smh_return_1h"
+    - "qqq_return_1h"
+    - "vix_level"
+    - "vix_change_1h"
+    - "mara_return_1h"
+    - "nvda_return_1h"
+    - "mstr_return_1h"
+    - "holdings_composite_1h"
+    - "btc_overnight_return"
+    - "hour_of_day"
+    - "day_of_week"
+    - "us_open_flag"
+
+# ---------------------------------------------------------------------------
+# Predictor
+# ---------------------------------------------------------------------------
+predictor:
+  target_horizons_h: [1, 2, 3, 4, 8]   # predict returns at these horizons
+  target_symbol: "ASWM.DE"
+
+  xgb:
+    n_estimators: 300
+    max_depth: 4
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    random_state: 42
+    autoregressive_lags: [1, 2, 3, 4, 6, 8, 12]  # bars to lag ASWM itself
+
+  neuralprophet:
+    n_forecasts: 4            # bars ahead
+    n_lags: 12                # autoregressive lags
+    epochs: 100
+    batch_size: 32
+    learning_rate: 0.001
+    seasonality_mode: "additive"
+
+# ---------------------------------------------------------------------------
+# Signal generator
+# ---------------------------------------------------------------------------
+signal:
+  # Scheduled triggers (CET / Europe/Vienna)
+  triggers:
+    overnight_gap:
+      time_cet: "08:45"
+      default_hold_h: 3
+    xetra_open:
+      time_cet: "09:15"
+      default_hold_h: 3
+    us_open_lag:
+      time_cet: "15:35"
+      default_hold_h: 2
+    evening:
+      time_cet: "17:00"
+      default_hold_h: 16      # overnight until ~09:00 next day
+
+  # Minimum model confidence to emit a BUY signal
+  min_confidence: 0.60
+
+  # Output
+  log_file: "logs/signals.log"
+  timezone: "Europe/Vienna"
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+logging:
+  level: "INFO"               # overridden by LOG_LEVEL env var
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
