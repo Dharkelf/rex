@@ -20,7 +20,6 @@ def run_backtest() -> pd.DataFrame:
     data = build_backtest_features()
 
     cfg = load_config()
-    position_sizes = cfg["backtest"]["position_sizes_eur"]
     fee = cfg["backtest"]["fee_per_side_eur"]
 
     all_rows: list[dict] = []
@@ -32,8 +31,8 @@ def run_backtest() -> pd.DataFrame:
 
     summary = pd.DataFrame(all_rows)
 
-    # Aggregate across folds
-    group_cols = ["strategy", "position_eur"]
+    # Aggregate across folds — grouped by strategy × hold_h × position
+    group_cols = ["strategy", "hold_h", "position_eur"]
     agg = (
         summary.groupby(group_cols)
         .agg(
@@ -53,20 +52,23 @@ def run_backtest() -> pd.DataFrame:
 
 
 def _print_summary(df: pd.DataFrame, fee: float) -> None:
-    logger.info("\n" + "=" * 70)
-    logger.info("BACKTEST SUMMARY  (fee/side: €%.2f)", fee)
-    logger.info("=" * 70)
+    logger.info("\n" + "=" * 78)
+    logger.info("BACKTEST SUMMARY  (fee/side: €%.2f)  — hold_h × position", fee)
+    logger.info("=" * 78)
+    prev_strat = None
     for _, row in df.iterrows():
+        if row["strategy"] != prev_strat:
+            logger.info("--- %s ---", row["strategy"])
+            prev_strat = row["strategy"]
         logger.info(
-            "%s | €%-6.0f  trades=%.1f  win=%.0f%%  avg_pnl=€%+.2f  sharpe=%.2f  "
-            "max_dd=€%.2f  break-even=%.1f%%",
-            row["strategy"],
+            "  %2dh | €%-6.0f  trades=%.1f  win=%.0f%%  avg_pnl=€%+.2f"
+            "  sharpe=%.2f  break-even=%.1f%%",
+            row["hold_h"],
             row["position_eur"],
             row["avg_trades"],
             row["avg_win_rate"] * 100,
             row["avg_pnl_eur"],
             row["avg_sharpe"],
-            row["avg_max_dd"],
             row["break_even_pct"],
         )
-    logger.info("=" * 70)
+    logger.info("=" * 78)

@@ -39,26 +39,70 @@ _Not yet run. Update after first `python main.py --fit-hmm`._
 ## Backtest Results
 
 Run: 2026-05-23. Walk-forward, 3 folds, ~1 443 hourly bars.
-Default thresholds from settings.yaml (not yet optimised).
+Default thresholds from settings.yaml (nicht optimiert). Hold-Perioden: [2, 3, 5, 8, 16]h.
 
-| Strategy | Position | Trades/fold | Win rate | Ø P&L | Sharpe | Max DD | Break-even |
-|---|---|---|---|---|---|---|---|
-| S1 BTC-Lag | €500 | 12.7 | 3% | €-17.72 | -2.42 | €-206 | 4.0% |
-| S1 BTC-Lag | €1000 | 12.7 | 22% | €-15.43 | -1.06 | €-179 | 2.0% |
-| S2 Overnight-Gap | €500 | 23.0 | 0% | €-20.23 | -3.60 | €-443 | 4.0% |
-| S2 Overnight-Gap | €1000 | 23.0 | 7% | €-20.47 | -1.82 | €-447 | 2.0% |
-| S3 Holdings-Lag | €500 | 4.3 | 8% | €-16.38 | -2.08 | €-59 | 4.0% |
-| S3 Holdings-Lag | €1000 | 4.3 | 28% | €-12.76 | -0.83 | €-54 | 2.0% |
-| S4 US-Open Lag | €500 | 1.7 | 0% | €-15.29 | -1.44 | €-19 | 4.0% |
-| S4 US-Open Lag | €1000 | 1.7 | 25% | €-10.58 | -0.51 | €-15 | 2.0% |
+### Bestes Hold-Ergebnis je Strategie (Ø über 3 Folds, €1000 Position)
+
+| Strategy | Hold | Trades/fold | Win rate | Ø P&L | Sharpe | Break-even |
+|---|---|---|---|---|---|---|
+| S1 BTC-Lag | 3h | 12.7 | 22% | €-15.43 | -1.06 | 2.0% |
+| S2 Overnight-Gap | 16h | 11.0 | 26% | €-16.86 | -0.60 | 2.0% |
+| S3 Holdings-Lag | 16h | 4.0 | **56%** | **€-1.35** | -0.02 | 2.0% |
+| S4 US-Open Lag | 16h | 1.7 | **88%** | **€+19.93** | +0.78 | 2.0% |
+
+### S1 BTC-Lag — alle Hold-Perioden (€1000)
+
+| Hold | Trades/fold | Win% | Ø P&L | Sharpe |
+|---|---|---|---|---|
+| 2h | 13.3 | 14% | €-15.48 | -1.25 |
+| 3h | 12.7 | 22% | €-15.43 | -1.06 |
+| 5h | 12.3 | 16% | €-17.48 | -1.07 |
+| 8h | 10.7 | 30% | €-19.69 | -0.68 |
+| 16h | 9.7 | 15% | €-21.59 | -0.79 |
+
+### S2 Overnight-Gap — alle Hold-Perioden (€1000)
+
+| Hold | Trades/fold | Win% | Ø P&L | Sharpe |
+|---|---|---|---|---|
+| 2h | 23.0 | 5% | €-20.44 | -2.29 |
+| 3h | 23.0 | 7% | €-20.47 | -1.82 |
+| 5h | 22.0 | 16% | €-19.10 | -0.99 |
+| 8h | 14.7 | 18% | €-24.69 | -0.84 |
+| 16h | 11.0 | 26% | €-16.86 | -0.60 |
+
+### S3 Holdings-Lag — alle Hold-Perioden (€1000)
+
+| Hold | Trades/fold | Win% | Ø P&L | Sharpe |
+|---|---|---|---|---|
+| 2h | 4.3 | 28% | €-12.76 | -0.83 |
+| 3h | 4.3 | 33% | €-13.89 | -0.72 |
+| 5h | 4.3 | 28% | €-14.69 | -0.75 |
+| 8h | 4.3 | 33% | €-10.73 | -0.59 |
+| **16h** | **4.0** | **56%** | **€-1.35** | **-0.02** |
+
+### S4 US-Open Lag — alle Hold-Perioden (€1000)
+
+| Hold | Trades/fold | Win% | Ø P&L | Sharpe |
+|---|---|---|---|---|
+| 2h | 1.7 | 25% | €-10.58 | -0.51 |
+| 3h | 1.7 | 25% | €-17.88 | -0.50 |
+| 5h | 1.7 | 25% | €-25.60 | -0.51 |
+| 8h | 1.7 | 25% | €-7.05 | -0.30 |
+| **16h** | **1.7** | **88%** | **€+19.93** | **+0.78** |
 
 **Interpretation:**
-- Alle Strategien mit Default-Schwellen unprofitabel nach Transaktionskosten.
-- S3 Holdings-Lag bei €1000 zeigt in Fold 2 avg_pnl €-1.26, 50% Win-Rate — nächste an Break-even.
-- S4 US-Open Lag: zu wenig Trades für statistisch belastbare Aussagen.
-- Hauptursache: ASWM-Stundenrenditen überschreiten Break-even (4% bei €500 / 2% bei €1000)
-  zu selten. Covered-Call-Overlay begrenzt Upside strukturell.
-- Regime-Filter (HMM Bull) und Schwellen-Optimierung nächster Schritt.
+- Alle Strategien bei kurzen Hold-Perioden (<8h) klar unprofitabel nach Transaktionskosten.
+- **16h Hold (Overnight)** ist strukturell am besten — ETF erholt sich im Laufe des nächsten Handelstags.
+- **S3 Holdings-Lag + 16h + €1000**: Ø P&L €-1.35, 56% Win-Rate — fast Break-even.
+  Nur 4 Trades/Fold; mit Regime-Filter potenziell profitabel.
+- **S4 US-Open Lag + 16h + €1000**: Ø P&L €+19.93, 88% Win-Rate — **einzige Strategie mit positivem Ø P&L**.
+  Aber: nur 1.7 Trades/Fold (≈5 Trades gesamt) — statistisch nicht belastbar.
+  Alle Trades aus Fold 1+3; Fold 2 hat 0 Trades (kein Signal erfüllt).
+- **S1 BTC-Lag**: Länger halten schadet — Covered-Call-Overlay kürzt Upside bei starken BTC-Moves.
+- **S2 Overnight-Gap**: Zu viele False Positives (ETF reagiert nicht bei jedem BTC-Overnight-Move).
+- Hauptursache genereller Underperformance: ASWM break-even 2% bei €1000 wird zu selten
+  überschritten; Covered-Call-Overlay begrenzt Upside strukturell.
+- **Nächste Schritte**: HMM Regime-Filter (nur in Bull-Phase handeln) + Schwellen-Optimierung.
 
 ---
 

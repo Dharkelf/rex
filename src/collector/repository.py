@@ -67,7 +67,7 @@ class DataRepository:
     @staticmethod
     def _normalise(df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
-        df.columns = [c.lower() for c in df.columns]
+        df.columns = pd.Index([str(c).lower() for c in df.columns])
         for col in _SCHEMA_COLS:
             if col not in df.columns:
                 df[col] = float("nan")

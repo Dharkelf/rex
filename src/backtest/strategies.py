@@ -23,7 +23,7 @@ class S1BtcLag(BacktestStrategy):
         threshold: float = cfg["btc_return_threshold"]
         sig = data["btc_return_1h"] > threshold
         # Only enter during XETRA hours (08:00–16:00 UTC)
-        hours = data.index.hour
+        hours = pd.DatetimeIndex(data.index).hour
         xetra_mask = (hours >= 8) & (hours < 16)
         return sig & xetra_mask
 
@@ -41,7 +41,7 @@ class S2OvernightGap(BacktestStrategy):
         threshold: float = cfg["btc_overnight_threshold"]
         # Only trigger on the first XETRA bar (09:00 CET = 07:00 UTC summer / 08:00 winter)
         # Use hour == 8 UTC as proxy for XETRA open bar
-        open_bar = data.index.hour == 8
+        open_bar = pd.DatetimeIndex(data.index).hour == 8
         strong_overnight = data["btc_overnight_return"].abs() > threshold
         return pd.Series(open_bar & strong_overnight, index=data.index)
 
@@ -62,7 +62,7 @@ class S3HoldingsLag(BacktestStrategy):
         holdings_strong = data["holdings_composite_1h"] > hold_threshold
         aswm_quiet = data["aswm_return_1h"].abs() < aswm_max
         # Only during XETRA hours
-        hours = data.index.hour
+        hours = pd.DatetimeIndex(data.index).hour
         xetra_mask = (hours >= 8) & (hours < 16)
         return holdings_strong & aswm_quiet & xetra_mask
 
@@ -81,13 +81,19 @@ class S4UsOpenLag(BacktestStrategy):
         aswm_max: float = cfg["aswm_max_move"]
 
         # US open bar: 13:30–14:30 UTC (summer) — use hour == 13 as proxy
-        us_open_bar = (data.index.hour == 13) | (data.index.hour == 14)
+        dti = pd.DatetimeIndex(data.index)
+        us_open_bar = (dti.hour == 13) | (dti.hour == 14)
         holdings_strong = data["holdings_composite_1h"] > threshold
         aswm_quiet = data["aswm_return_1h"].abs() < aswm_max
-        return us_open_bar & holdings_strong & aswm_quiet
+        return pd.Series(us_open_bar & holdings_strong & aswm_quiet, index=data.index)
 
     def _hold_bars(self) -> int:
         return load_config()["backtest"]["s4_us_open_lag"]["hold_bars"]
 
 
-ALL_STRATEGIES: list[type[BacktestStrategy]] = [S1BtcLag, S2OvernightGap, S3HoldingsLag, S4UsOpenLag]
+ALL_STRATEGIES: list[type[BacktestStrategy]] = [
+    S1BtcLag,
+    S2OvernightGap,
+    S3HoldingsLag,
+    S4UsOpenLag,
+]

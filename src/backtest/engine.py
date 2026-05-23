@@ -45,6 +45,7 @@ class Trade:
 class BacktestResult:
     strategy_id: str
     position_eur: float
+    hold_bars: int = 3
     trades: list[Trade] = field(default_factory=list)
 
     @property
@@ -61,14 +62,14 @@ class BacktestResult:
     def avg_net_pnl_eur(self) -> float:
         if not self.trades:
             return float("nan")
-        return np.mean([t.net_pnl_eur for t in self.trades])
+        return float(np.mean([t.net_pnl_eur for t in self.trades]))
 
     @property
     def sharpe(self) -> float:
         if len(self.trades) < 2:
             return float("nan")
         rets = [t.net_return for t in self.trades]
-        mu, sigma = np.mean(rets), np.std(rets, ddof=1)
+        mu, sigma = float(np.mean(rets)), float(np.std(rets, ddof=1))
         return mu / sigma if sigma > 0 else float("nan")
 
     @property
@@ -90,6 +91,7 @@ class BacktestResult:
     def summary(self) -> dict:
         return {
             "strategy": self.strategy_id,
+            "hold_h": self.hold_bars,
             "position_eur": self.position_eur,
             "n_trades": self.n_trades,
             "win_rate": round(self.win_rate, 3),
@@ -113,13 +115,20 @@ class BacktestStrategy(ABC):
         """Return a boolean Series aligned to data.index: True = enter long."""
         ...
 
-    def run(self, data: pd.DataFrame, position_eur: float) -> BacktestResult:
+    def run(
+        self, data: pd.DataFrame, position_eur: float, hold_bars: int | None = None
+    ) -> BacktestResult:
         cfg = self.cfg
         fee = cfg["backtest"]["fee_per_side_eur"]
-        result = BacktestResult(strategy_id=self.strategy_id, position_eur=position_eur)
+        if hold_bars is None:
+            hold_bars = self._hold_bars()
+        result = BacktestResult(
+            strategy_id=self.strategy_id,
+            position_eur=position_eur,
+            hold_bars=hold_bars,
+        )
 
         signals = self.generate_signals(data)
-        hold_bars = self._hold_bars()
         aswm_close = data["aswm_close"]
 
         i = 0
@@ -162,26 +171,29 @@ class WalkForwardEvaluator:
         cfg = load_config()
         n_splits = cfg["backtest"]["n_splits"]
         position_sizes = cfg["backtest"]["position_sizes_eur"]
+        hold_periods = cfg["backtest"]["hold_periods_h"]
 
         tscv = TimeSeriesSplit(n_splits=n_splits)
         fold_results: list[dict] = []
 
         for fold, (train_idx, test_idx) in enumerate(tscv.split(data), start=1):
             test_data = data.iloc[test_idx]
-            for pos in position_sizes:
-                result = self.strategy.run(test_data, position_eur=pos)
-                summary = result.summary()
-                summary["fold"] = fold
-                fold_results.append(summary)
-                logger.info(
-                    "Fold %d | %s | €%d: trades=%d win=%.0f%% avg_pnl=€%.2f sharpe=%.2f",
-                    fold,
-                    self.strategy.strategy_id,
-                    pos,
-                    result.n_trades,
-                    result.win_rate * 100,
-                    result.avg_net_pnl_eur,
-                    result.sharpe,
-                )
+            for hold_h in hold_periods:
+                for pos in position_sizes:
+                    result = self.strategy.run(test_data, position_eur=pos, hold_bars=hold_h)
+                    summary = result.summary()
+                    summary["fold"] = fold
+                    fold_results.append(summary)
+                    logger.info(
+                        "Fold %d | %s | %dh | €%d: trades=%d win=%.0f%% avg_pnl=€%.2f sharpe=%.2f",
+                        fold,
+                        self.strategy.strategy_id,
+                        hold_h,
+                        pos,
+                        result.n_trades,
+                        result.win_rate * 100,
+                        result.avg_net_pnl_eur,
+                        result.sharpe,
+                    )
 
         return fold_results

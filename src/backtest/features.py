@@ -9,7 +9,6 @@ import pandas as pd
 
 from src.collector.repository import DataRepository
 from src.utils.config import load_config
-from src.utils.paths import raw_parquet
 
 logger = logging.getLogger(__name__)
 
@@ -67,9 +66,10 @@ def build_backtest_features() -> pd.DataFrame:
         df["holdings_composite_1h"] = np.nan
 
     # Time features
-    df["hour_of_day"] = idx.hour
-    df["day_of_week"] = idx.dayofweek
-    df["us_open_flag"] = ((idx.hour == 13) | (idx.hour == 14)).astype(int)
+    dti = pd.DatetimeIndex(idx)
+    df["hour_of_day"] = dti.hour
+    df["day_of_week"] = dti.dayofweek
+    df["us_open_flag"] = ((dti.hour == 13) | (dti.hour == 14)).astype(int)
 
     df = df.dropna(subset=["aswm_close", "aswm_return_1h"])
     logger.info("Backtest feature matrix: %d rows, %d cols", len(df), len(df.columns))
@@ -80,16 +80,15 @@ def _overnight_return(series: pd.Series, close_hour_utc: int) -> pd.Series:
     """For each bar, compute return since the last close_hour bar."""
     result = pd.Series(index=series.index, dtype=float)
     last_close_price: float | None = None
-    last_close_hour_seen: int = -1
+    timestamps = pd.DatetimeIndex(series.index)
 
-    for ts, price in series.items():
+    for i, ts in enumerate(timestamps):
+        price = float(series.iloc[i])
         if ts.hour == close_hour_utc:
             last_close_price = price
-            last_close_hour_seen = ts.date().toordinal()
-
         if last_close_price is not None and ts.hour != close_hour_utc:
-            result[ts] = (price - last_close_price) / last_close_price
+            result.iloc[i] = (price - last_close_price) / last_close_price
         else:
-            result[ts] = float("nan")
+            result.iloc[i] = float("nan")
 
     return result

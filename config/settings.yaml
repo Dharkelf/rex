@@ -102,10 +102,15 @@ backtest:
   # Walk-forward
   n_splits: 3
 
+  # Hold periods tested across all strategies (hours)
+  # 3h = intraday, 5h = half-day, 8h = full XETRA session,
+  # 16h = overnight (XETRA close ~17:30 to next open ~09:15)
+  hold_periods_h: [2, 3, 5, 8, 16]
+
   # Strategy thresholds (optimised during backtest, initial values here)
   s1_btc_lag:
     btc_return_threshold: 0.015    # BTC 1h return > 1.5% triggers entry
-    hold_bars: 3
+    hold_bars: 3                   # default; overridden by hold_periods_h sweep
 
   s2_overnight_gap:
     btc_overnight_threshold: 0.020 # BTC move during XETRA-closed window
