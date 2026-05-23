@@ -51,12 +51,20 @@ def build_feature_matrix() -> pd.DataFrame:
             df["vix_level"] = close
             df["vix_change_1h"] = close.diff()
 
-    # Holdings composite (crypto miners: MARA, IREN, MSTR)
-    miner_cols = [
-        c for c in df.columns if any(s in c for s in ["MARA", "IREN", "MSTR"]) and "return_1h" in c
-    ]
-    if miner_cols:
-        df["holdings_composite_1h"] = df[miner_cols].mean(axis=1)
+    # Weight-adjusted holdings composite (all 10 fund holdings × actual fund weights)
+    weights: dict[str, float] = {h["symbol"]: float(h["weight"]) for h in cfg["holdings"]}
+    weight_sum = sum(weights.values())
+    holding_cols = []
+    for sym, w in weights.items():
+        col = f"{_safe(sym)}_return_1h"
+        if col in df.columns:
+            holding_cols.append((col, w / weight_sum))
+    if holding_cols:
+        df["holdings_composite_1h"] = sum(df[col] * w for col, w in holding_cols)
+        # ETF-lag: how much holdings moved vs ASWM in the same bar (positive = ASWM lagging)
+        df["holdings_etf_lag_1h"] = df["holdings_composite_1h"] - df["aswm_return_1h"]
+
+    df["aswm_close"] = aswm_c
 
     # Overnight BTC return
     btc_close = DataRepository("BTC-USD").load()

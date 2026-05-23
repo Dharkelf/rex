@@ -25,14 +25,21 @@ Total: 118 157 rows across 19 symbols.
 
 ## Feature Matrix
 
-_Not yet run. Update after first `python main.py --fit-hmm`._
+Run: 2026-05-23 (v2 — weighted holdings composite + ETF-lag + aswm_close).
+
+**Änderungen v2 vs v1:**
+- `holdings_composite_1h`: war einfacher Mittelwert von MARA/IREN/MSTR; jetzt gewichteter Durchschnitt
+  aller 10 Fondspositionen × tatsächliche Fondsgewichte aus settings.yaml (normiert auf 1.0).
+  Abdeckung: MU, APLD, AMD, MARA, IREN, HOOD, NVDA, TSLA, V, MSTR.
+- `holdings_etf_lag_1h` (neu): `holdings_composite_1h − aswm_return_1h` — positiv wenn Holdings
+  gestiegen aber ASWM noch nicht nachgezogen (direktes Maß für den US-Open-Lag-Effekt).
+- `aswm_close` (neu): absoluter Schlusskurs; wird von XGBPredictor als Zielvariable genutzt.
 
 | Metric | Value |
 |---|---|
-| Shape | — |
-| NaN rate (max) | — |
-| NaN rate (mean) | — |
-| Date range | — |
+| ASWM bars | 1 443 |
+| Feature columns | ~50 |
+| Key new features | holdings_etf_lag_1h, aswm_close (weighted composite) |
 
 ---
 
@@ -116,31 +123,26 @@ _(-3% oder -4%) und >2 Jahren ASWM-Daten erneut testen._
 
 ## HMM Regime Model
 
-Run: 2026-05-23 (v2 — log-returns + StandardScaler). GaussianHMM, 3 states, 100 Optuna trials (TPE).
+Run: 2026-05-23 (v3 — weighted holdings composite, holdings_etf_lag_1h als Kandidat).
 Saved: `data/processed/hmm_model_v1.pkl`.
 
 | Metric | Value |
 |---|---|
 | n_components | 3 |
-| Features (Optuna best) | vix_change_1h, holdings_composite_1h, us_open_flag |
+| Features (Optuna best) | vix_level, vix_change_1h, holdings_composite_1h, hour_of_day, us_open_flag |
 | n_samples | 1 443 |
-| Total log-likelihood | 12 933 643 |
-| Bull regime (State 0) | 438 bars = 30.4% — mean ASWM log-return **+0.147%/h** |
-| Neutral regime (State 1) | 318 bars = 22.0% — mean ASWM log-return −0.031%/h |
-| Bear regime (State 2) | 687 bars = 47.6% — mean ASWM log-return −0.045%/h |
 
-**Verbesserung gegenüber v1 (einfache Returns, kein Scaler):**
-- Regime-Separation deutlich stärker: Bull +0.147%/h vs. Neutral/Bear ~−0.04%/h
-  (v1: +0.081% vs. +0.020% / −0.016% — kaum unterscheidbar)
-- Bull-Anteil 30.4% (v1: 13.8%) — mehr Handelssignale in besserem Marktumfeld
-- StandardScaler stabilisiert das EM-Training und verhindert featureskalen-dominanz
+**Änderung v3 vs v2:** Optuna selektierte nun `vix_level` und `hour_of_day` zusätzlich (v2: nur
+vix_change_1h + holdings_composite_1h + us_open_flag). `holdings_etf_lag_1h` wurde nicht selektiert.
+
+**v2-Regime-Ergebnisse (Referenz):**
+- Bull regime (State 0): 438 bars = 30.4% — mean ASWM log-return +0.147%/h
+- Neutral regime (State 1): 318 bars = 22.0% — mean ASWM log-return −0.031%/h
+- Bear regime (State 2): 687 bars = 47.6% — mean ASWM log-return −0.045%/h
 
 **Interpretation:**
-- In Bull-Regime: erwartete Stundenrendite +0.147% → bei 16h Hold ca. +2.35% kumuliert
-  = knapp über Break-even (€1000 Position: 2.0%). **Erste positive Erwartungswertstruktur.**
-- Bear hat knapp die Hälfte aller Bars — strukturell bearishes Marktumfeld seit ETF-Inception.
-  Covered-Call-Overlay dämpft Upside auch in Bull-Phasen.
-- Nächster Schritt: Backtest mit Regime-Filter (nur Bull) → erwartete Win-Rate-Verbesserung.
+- Regime-Filter schadet S4: Bull-only gibt 0 Trades — HMM nicht als S4-Filter nutzen.
+- Bull-Regime als positives Marktumfeld für zukünftige Strategien (>2 Jahre Daten) relevant.
 
 ---
 

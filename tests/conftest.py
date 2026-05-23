@@ -47,7 +47,8 @@ def btc_ohlcv() -> pd.DataFrame:
 
 @pytest.fixture
 def feature_matrix(aswm_ohlcv: pd.DataFrame, btc_ohlcv: pd.DataFrame) -> pd.DataFrame:
-    idx = aswm_ohlcv.index
+    dti = pd.DatetimeIndex(aswm_ohlcv.index)
+    idx = dti
     rng = np.random.default_rng(99)
     df = pd.DataFrame(index=idx)
     df["aswm_close"] = aswm_ohlcv["close"]
@@ -65,8 +66,11 @@ def feature_matrix(aswm_ohlcv: pd.DataFrame, btc_ohlcv: pd.DataFrame) -> pd.Data
     df["IREN_return_1h"] = rng.normal(0, 0.03, len(idx))
     df["MSTR_return_1h"] = rng.normal(0, 0.025, len(idx))
     df["NVDA_return_1h"] = rng.normal(0, 0.015, len(idx))
-    df["holdings_composite_1h"] = df[["MARA_return_1h", "IREN_return_1h", "MSTR_return_1h"]].mean(axis=1)
-    df["hour_of_day"] = idx.hour.astype(float)
-    df["day_of_week"] = idx.dayofweek.astype(float)
-    df["us_open_flag"] = ((idx.hour == 13) | (idx.hour == 14)).astype(float)
+    df["holdings_composite_1h"] = df[["MARA_return_1h", "IREN_return_1h", "MSTR_return_1h"]].mean(
+        axis=1
+    )
+    df["holdings_etf_lag_1h"] = df["holdings_composite_1h"] - df["aswm_return_1h"]
+    df["hour_of_day"] = dti.hour.astype(float)
+    df["day_of_week"] = dti.dayofweek.astype(float)
+    df["us_open_flag"] = ((dti.hour == 13) | (dti.hour == 14)).astype(float)
     return df.dropna()

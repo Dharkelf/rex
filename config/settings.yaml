@@ -171,6 +171,7 @@ hmm:
     - "nvda_return_1h"
     - "mstr_return_1h"
     - "holdings_composite_1h"
+    - "holdings_etf_lag_1h"
     - "btc_overnight_return"
     - "hour_of_day"
     - "day_of_week"
